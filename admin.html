@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>แผงเจ้าหน้าที่ | WangTarn Resort</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Kanit:wght@500;600;700&family=Noto+Sans+Thai:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/firebase@10.12.2/firebase-app-compat.js"></script>
+<script src="https://unpkg.com/firebase@10.12.2/firebase-firestore-compat.js"></script>
+<style>
+  :root{
+    --court-deep:#173C33;
+    --court-mid:#215449;
+    --court-line:#F4EFE1;
+    --ball:#D7E85B;
+    --ball-dark:#7C8A22;
+    --wood:#A9835A;
+    --wood-dark:#6E5334;
+    --ink:#152420;
+    --ink-soft:#4B615A;
+    --page-bg:#EFEEE3;
+    --danger:#C0503A;
+    --danger-bg:#F6E4DE;
+    --amber:#C98A1F;
+    --amber-bg:#F5E7CC;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--page-bg);font-family:'Noto Sans Thai','Kanit',sans-serif;color:var(--ink);}
+  h1,h2,h3,.display{font-family:'Kanit',sans-serif;font-weight:700;}
+  header.site{
+    background:var(--court-deep);color:var(--court-line);padding:14px 24px;
+    display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid var(--ball);
+  }
+  header.site .name{font-size:16px;font-weight:600;font-family:'Kanit',sans-serif;}
+  header.site .sub{font-size:12px;color:#B9CEC6;}
+
+  .wrap{max-width:900px;margin:0 auto;padding:24px;}
+  .date-scroller{display:flex;gap:8px;overflow-x:auto;padding:6px 2px 18px;}
+  .date-pill{
+    flex:0 0 auto;background:#fff;border:1.5px solid #DAD5C4;border-radius:12px;
+    padding:8px 14px;cursor:pointer;text-align:center;min-width:64px;
+  }
+  .date-pill .dow{display:block;font-size:11px;color:var(--ink-soft);text-transform:uppercase;}
+  .date-pill .dnum{display:block;font-family:'Kanit',sans-serif;font-weight:600;font-size:18px;margin-top:2px;}
+  .date-pill .mon{display:block;font-size:10.5px;color:var(--ink-soft);}
+  .date-pill.active{background:var(--court-deep);border-color:var(--court-deep);}
+  .date-pill.active .dow,.date-pill.active .mon{color:#B9CEC6;}
+  .date-pill.active .dnum{color:var(--ball);}
+
+  .court-block{background:#fff;border:1.5px solid #DAD5C4;border-radius:16px;overflow:hidden;margin-bottom:18px;}
+  .court-head{background:var(--court-mid);color:var(--court-line);padding:12px 18px;font-family:'Kanit',sans-serif;font-weight:600;font-size:15px;}
+  .row{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    padding:10px 18px;border-top:1px solid #EEEAE0;font-size:13.5px;
+  }
+  .row .time{font-family:'JetBrains Mono',monospace;font-weight:700;width:110px;flex:0 0 auto;}
+  .row .meta{flex:1;color:var(--ink-soft);}
+  .row .meta b{color:var(--ink);}
+  .badge{font-size:11.5px;font-weight:600;padding:3px 10px;border-radius:999px;flex:0 0 auto;}
+  .badge.free{background:#EFEEE3;color:var(--ink-soft);}
+  .badge.pending{background:var(--amber-bg);color:var(--amber);}
+  .badge.confirmed{background:var(--wood);color:#fff;}
+  .row .actions{display:flex;gap:6px;flex:0 0 auto;}
+  .row .actions button{
+    border:none;border-radius:7px;padding:6px 10px;font-size:12px;cursor:pointer;
+    font-family:'Kanit',sans-serif;font-weight:600;
+  }
+  .row .actions .ok{background:var(--court-deep);color:var(--ball);}
+  .row .actions .no{background:var(--danger-bg);color:var(--danger);}
+
+  .gate{
+    position:fixed;inset:0;background:var(--court-deep);
+    display:flex;align-items:center;justify-content:center;z-index:100;padding:20px;
+  }
+  .gate-box{background:#fff;border-radius:16px;padding:26px 24px;max-width:340px;width:100%;}
+  .gate-box h3{margin:0 0 6px;font-size:19px;}
+  .gate-box p{font-size:13px;color:var(--ink-soft);margin:0 0 16px;}
+  .gate-box input{
+    width:100%;border:1.5px solid #DAD5C4;border-radius:8px;padding:10px 12px;font-size:15px;margin-bottom:10px;
+  }
+  .gate-box button{
+    width:100%;border:none;border-radius:9px;padding:11px;font-family:'Kanit',sans-serif;
+    font-weight:600;font-size:14px;cursor:pointer;background:var(--court-deep);color:var(--ball);
+  }
+  .gate-err{color:var(--danger);font-size:12.5px;display:none;margin-bottom:8px;}
+  .empty-note{padding:16px 18px;font-size:13px;color:var(--ink-soft);}
+</style>
+</head>
+<body>
+
+<div class="gate" id="gate">
+  <div class="gate-box">
+    <h3>แผงเจ้าหน้าที่ WangTarn</h3>
+    <p>กรอกรหัสผ่านสำหรับเจ้าหน้าที่เพื่อเข้าดูรายการจอง</p>
+    <input type="password" id="fPass" placeholder="รหัสผ่าน">
+    <div class="gate-err" id="gateErr">รหัสผ่านไม่ถูกต้อง</div>
+    <button id="btnEnter">เข้าสู่ระบบ</button>
+  </div>
+</div>
+
+<header class="site">
+  <div>
+    <div class="name">WangTarn Resort</div>
+    <div class="sub">แผงเจ้าหน้าที่ · ยืนยันการชำระเงินและจัดการคิวจอง</div>
+  </div>
+</header>
+
+<div class="wrap">
+  <div id="dateScroller" class="date-scroller"></div>
+  <div id="courtsWrap"></div>
+</div>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyCcOlWwZC9JTwZmM29e9tj7UcLB17JBYOw",
+  authDomain: "wangtarn-pickleball.firebaseapp.com",
+  projectId: "wangtarn-pickleball",
+  storageBucket: "wangtarn-pickleball.firebasestorage.app",
+  messagingSenderId: "1085005920723",
+  appId: "1:1085005920723:web:7875a2e025f2c2be88d726",
+  measurementId: "G-5S4DLTLB4K"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+const COURTS=[{id:'A',name:'สนาม A'},{id:'B',name:'สนาม B'}];
+const SLOT_HOURS=[7,8,9,10,11,12,13,14,15,16,17,18,19];
+const DOW=['อา','จ','อ','พ','พฤ','ศ','ส'];
+const MON=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+const ADMIN_PASSCODE='1234';
+
+function isoDate(d){
+  const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+function timeLabel(h){return `${String(h).padStart(2,'0')}:00`;}
+function escapeHtml(str){
+  const div=document.createElement('div');
+  div.textContent=str||'';
+  return div.innerHTML;
+}
+function formatDateThai(iso){
+  const [y,m,d]=iso.split('-').map(Number);
+  const dt=new Date(y,m-1,d);
+  return `วัน${['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์','เสาร์'][dt.getDay()]}ที่ ${d} ${MON[m-1]} ${y+543}`;
+}
+
+const dates=[];
+for(let i=0;i<14;i++){
+  const d=new Date();
+  d.setDate(d.getDate()+i);
+  dates.push(d);
+}
+let selectedISO=isoDate(dates[0]);
+let currentBookings={A:{},B:{}};
+
+async function loadBookingsForDate(iso){
+  try{
+    const docSnap=await db.collection('bookings').doc(iso).get();
+    if(docSnap.exists){
+      const data=docSnap.data();
+      return {A:data.A||{}, B:data.B||{}};
+    }
+    return {A:{},B:{}};
+  }catch(e){
+    console.error(e);
+    return {A:{},B:{}};
+  }
+}
+async function saveBookingsForDate(iso, data){
+  try{
+    await db.collection('bookings').doc(iso).set(data);
+    return true;
+  }catch(e){
+    console.error(e);
+    return false;
+  }
+}
+
+function renderDateScroller(){
+  const el=document.getElementById('dateScroller');
+  el.innerHTML='';
+  dates.forEach(d=>{
+    const iso=isoDate(d);
+    const pill=document.createElement('div');
+    pill.className='date-pill'+(iso===selectedISO?' active':'');
+    pill.innerHTML=`<span class="dow">${DOW[d.getDay()]}</span><span class="dnum">${d.getDate()}</span><span class="mon">${MON[d.getMonth()]}</span>`;
+    pill.onclick=()=>{selectedISO=iso;loadAndRender();};
+    el.appendChild(pill);
+  });
+}
+
+function statusInfo(booking){
+  if(!booking) return {cls:'free', label:'ว่าง'};
+  if(booking.status==='confirmed') return {cls:'confirmed', label:'จองสำเร็จ'};
+  return {cls:'pending', label:'รอตรวจสอบ'};
+}
+
+function renderCourts(){
+  const wrap=document.getElementById('courtsWrap');
+  wrap.innerHTML='';
+  COURTS.forEach(court=>{
+    const block=document.createElement('div');
+    block.className='court-block';
+    const head=document.createElement('div');
+    head.className='court-head';
+    head.textContent=court.name;
+    block.appendChild(head);
+
+    SLOT_HOURS.forEach(h=>{
+      const booking=currentBookings[court.id][String(h)];
+      const info=statusInfo(booking);
+      const row=document.createElement('div');
+      row.className='row';
+      const label=timeLabel(h)+'–'+timeLabel(h+1);
+      let metaHtml='<span class="meta">ยังไม่มีการจอง</span>';
+      if(booking){
+        metaHtml=`<span class="meta"><b>${escapeHtml(booking.name)}</b> · ${escapeHtml(booking.phone)}${booking.players?' · '+escapeHtml(booking.players)+' คน':''}${booking.lineName?' · LINE: '+escapeHtml(booking.lineName):''}</span>`;
+      }
+      let actionsHtml='';
+      if(booking && booking.status==='pending_payment'){
+        actionsHtml=`<div class="actions"><button class="ok" data-action="confirm">ยืนยัน</button><button class="no" data-action="reject">ปฏิเสธ</button></div>`;
+      }else if(booking && booking.status==='confirmed'){
+        actionsHtml=`<div class="actions"><button class="no" data-action="cancel">ยกเลิก</button></div>`;
+      }
+      row.innerHTML=`
+        <span class="time">${label}</span>
+        ${metaHtml}
+        <span class="badge ${info.cls}">${info.label}</span>
+        ${actionsHtml}
+      `;
+      if(booking){
+        const okBtn=row.querySelector('[data-action="confirm"]');
+        const rejectBtn=row.querySelector('[data-action="reject"]');
+        const cancelBtn=row.querySelector('[data-action="cancel"]');
+        if(okBtn) okBtn.onclick=()=>updateBooking(court.id, h, 'confirm');
+        if(rejectBtn) rejectBtn.onclick=()=>updateBooking(court.id, h, 'reject');
+        if(cancelBtn) cancelBtn.onclick=()=>updateBooking(court.id, h, 'reject');
+      }
+      block.appendChild(row);
+    });
+    wrap.appendChild(block);
+  });
+}
+
+async function updateBooking(courtId, hour, action){
+  const fresh=await loadBookingsForDate(selectedISO);
+  if(!fresh[courtId][String(hour)]) return;
+  if(action==='confirm'){
+    fresh[courtId][String(hour)].status='confirmed';
+    fresh[courtId][String(hour)].confirmedAt=new Date().toISOString();
+  }else{
+    delete fresh[courtId][String(hour)];
+  }
+  const ok=await saveBookingsForDate(selectedISO, fresh);
+  if(ok){
+    currentBookings=fresh;
+    renderCourts();
+  }else{
+    alert('บันทึกไม่สำเร็จ กรุณาลองใหม่');
+  }
+}
+
+async function loadAndRender(){
+  renderDateScroller();
+  document.getElementById('courtsWrap').innerHTML='<div class="empty-note">กำลังโหลด...</div>';
+  currentBookings=await loadBookingsForDate(selectedISO);
+  renderCourts();
+}
+
+document.getElementById('btnEnter').onclick=()=>{
+  const val=document.getElementById('fPass').value;
+  if(val===ADMIN_PASSCODE){
+    document.getElementById('gate').style.display='none';
+    loadAndRender();
+  }else{
+    document.getElementById('gateErr').style.display='block';
+  }
+};
+document.getElementById('fPass').addEventListener('keydown', e=>{
+  if(e.key==='Enter') document.getElementById('btnEnter').click();
+});
+</script>
+
+</body>
+</html>
