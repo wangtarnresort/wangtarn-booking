@@ -85,6 +85,12 @@
   }
   .gate-err{color:var(--danger);font-size:12.5px;display:none;margin-bottom:8px;}
   .empty-note{padding:16px 18px;font-size:13px;color:var(--ink-soft);}
+  .activity-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
+  .activity-tab{
+    display:flex;align-items:center;gap:6px;background:#fff;border:1.5px solid #DAD5C4;border-radius:10px;
+    padding:8px 14px;cursor:pointer;font-family:'Kanit',sans-serif;font-weight:600;font-size:13.5px;color:var(--ink-soft);
+  }
+  .activity-tab.active{background:var(--court-deep);border-color:var(--court-deep);color:var(--ball);}
 </style>
 </head>
 <body>
@@ -107,6 +113,7 @@
 </header>
 
 <div class="wrap">
+  <div class="activity-tabs" id="activityTabs"></div>
   <div id="dateScroller" class="date-scroller"></div>
   <div id="courtsWrap"></div>
 </div>
@@ -124,8 +131,26 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
-const COURTS=[{id:'A',name:'สนาม A'},{id:'B',name:'สนาม B'}];
-const SLOT_HOURS=[7,8,9,10,11,12,13,14,15,16,17,18,19];
+const ACTIVITIES=[
+  {
+    id:'pickleball', label:'Pickleball', emoji:'🏓',
+    slotHours:[7,8,9,10,11,12,13,14,15,16,17,18,19],
+    resources:[{id:'A',name:'สนาม A'},{id:'B',name:'สนาม B'}]
+  },
+  {
+    id:'atv', label:'ATV', emoji:'🏍️',
+    slotHours:[9,10,11,12,13,14,15,16,17],
+    resources:[{id:'V1',name:'ATV คันที่ 1'},{id:'V2',name:'ATV คันที่ 2'}]
+  },
+  {
+    id:'pool', label:'สระว่ายน้ำ', emoji:'🏊',
+    slotHours:[8,9,10,11,12,13,14,15,16,17,18],
+    resources:[{id:'POOL',name:'สระว่ายน้ำหลัก'}]
+  }
+];
+let activityIndex=0;
+function activity(){ return ACTIVITIES[activityIndex]; }
+function collectionName(){ return 'bookings_'+activity().id; }
 const DOW=['อา','จ','อ','พ','พฤ','ศ','ส'];
 const MON=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
 const ADMIN_PASSCODE='1234';
@@ -156,21 +181,23 @@ let selectedISO=isoDate(dates[0]);
 let currentBookings={A:{},B:{}};
 
 async function loadBookingsForDate(iso){
+  const result={};
+  activity().resources.forEach(r=>{ result[r.id]={}; });
   try{
-    const docSnap=await db.collection('bookings').doc(iso).get();
+    const docSnap=await db.collection(collectionName()).doc(iso).get();
     if(docSnap.exists){
       const data=docSnap.data();
-      return {A:data.A||{}, B:data.B||{}};
+      activity().resources.forEach(r=>{ result[r.id]=data[r.id]||{}; });
     }
-    return {A:{},B:{}};
+    return result;
   }catch(e){
     console.error(e);
-    return {A:{},B:{}};
+    return result;
   }
 }
 async function saveBookingsForDate(iso, data){
   try{
-    await db.collection('bookings').doc(iso).set(data);
+    await db.collection(collectionName()).doc(iso).set(data);
     return true;
   }catch(e){
     console.error(e);
@@ -200,7 +227,7 @@ function statusInfo(booking){
 function renderCourts(){
   const wrap=document.getElementById('courtsWrap');
   wrap.innerHTML='';
-  COURTS.forEach(court=>{
+  activity().resources.forEach(court=>{
     const block=document.createElement('div');
     block.className='court-block';
     const head=document.createElement('div');
@@ -208,7 +235,7 @@ function renderCourts(){
     head.textContent=court.name;
     block.appendChild(head);
 
-    SLOT_HOURS.forEach(h=>{
+    activity().slotHours.forEach(h=>{
       const booking=currentBookings[court.id][String(h)];
       const info=statusInfo(booking);
       const row=document.createElement('div');
@@ -262,6 +289,23 @@ async function updateBooking(courtId, hour, action){
   }
 }
 
+function renderActivityTabs(){
+  const el=document.getElementById('activityTabs');
+  el.innerHTML='';
+  ACTIVITIES.forEach((act,i)=>{
+    const tab=document.createElement('div');
+    tab.className='activity-tab'+(i===activityIndex?' active':'');
+    tab.innerHTML=`<span class="emoji">${act.emoji}</span><span>${act.label}</span>`;
+    tab.onclick=()=>{
+      if(activityIndex===i) return;
+      activityIndex=i;
+      renderActivityTabs();
+      loadAndRender();
+    };
+    el.appendChild(tab);
+  });
+}
+
 async function loadAndRender(){
   renderDateScroller();
   document.getElementById('courtsWrap').innerHTML='<div class="empty-note">กำลังโหลด...</div>';
@@ -273,6 +317,7 @@ document.getElementById('btnEnter').onclick=()=>{
   const val=document.getElementById('fPass').value;
   if(val===ADMIN_PASSCODE){
     document.getElementById('gate').style.display='none';
+    renderActivityTabs();
     loadAndRender();
   }else{
     document.getElementById('gateErr').style.display='block';
