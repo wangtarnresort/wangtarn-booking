@@ -163,6 +163,7 @@
   .picker-btn:hover{border-color:var(--court-mid);}
   .picker-btn.active{background:var(--court-deep);border-color:var(--court-deep);color:var(--ball);}
   .picker-btn.active small{color:#B9CEC6;}
+  .slot.dim{opacity:0.45;}
   .pkg-list{flex-basis:100%;display:flex;flex-wrap:wrap;gap:4px 18px;font-size:12.5px;color:var(--ink-soft);margin-top:6px;}
   .pkg-list b{color:var(--ink);}
   .slot.selected{background:var(--ball);border-color:var(--ball-dark);}
@@ -342,15 +343,14 @@ function renderActivityTabs(){
       if(activityIndex===i) return;
       activityIndex=i;
       activeResId=null;
+      activePkgHours=1;
       renderActivityTabs();
       loadAndRender();
     };
     el.appendChild(tab);
   });
   const banner=document.getElementById('activityBanner');
-  const pk=activity().packages
-    ? '<div class="pkg-list">'+activity().packages.map(p=>`<span>${p.label} = <b>${p.price.toLocaleString()} บาท/คัน</b></span>`).join('')+'</div>'
-    : '';
+  const pk='';
   banner.innerHTML=`<h2>${activity().emoji} ${activity().label}</h2><span class="price">${activity().priceLabel}</span>${pk}`;
 }
 
@@ -405,6 +405,21 @@ let selection={resId:null, hours:[]};
 function resetSelection(){ selection={resId:null, hours:[]}; renderSelectBar(); }
 function selectedResource(){ return activity().resources.find(r=>r.id===selection.resId); }
 let activeResId=null;
+let activePkgHours=1;
+function currentPkg(){
+  const a=activity();
+  if(!a.packages) return null;
+  return a.packages.find(p=>p.hours===activePkgHours)||a.packages[0];
+}
+function canStart(res,h,n){
+  const a=activity();
+  for(let k=0;k<n;k++){
+    const x=h+k;
+    if(!a.slotHours.includes(x)) return false;
+    if(currentBookings[res.id] && currentBookings[res.id][String(x)]) return false;
+  }
+  return true;
+}
 function visibleResources(){
   const a=activity();
   if(!a.pickResource) return a.resources;
@@ -421,7 +436,7 @@ function renderResourcePicker(){
   visibleResources();
   const label=document.createElement('div');
   label.className='picker-label';
-  label.textContent='1) เลือกรถ  →  2) เลือกชั่วโมงที่ต้องการ';
+  label.textContent='1) เลือกรถ';
   el.appendChild(label);
   const row=document.createElement('div');
   row.className='picker-row';
@@ -440,6 +455,29 @@ function renderResourcePicker(){
     row.appendChild(b);
   });
   el.appendChild(row);
+  if(a.packages){
+    const pl=document.createElement('div');
+    pl.className='picker-label';
+    pl.style.marginTop='14px';
+    pl.textContent='2) เลือกแพ็กเกจ';
+    el.appendChild(pl);
+    const prow=document.createElement('div');
+    prow.className='picker-row';
+    const cur=currentPkg();
+    a.packages.forEach(p=>{
+      const b=document.createElement('button');
+      b.className='picker-btn'+(p.hours===cur.hours?' active':'');
+      b.innerHTML='<span>'+p.label+'</span><small>'+p.price.toLocaleString()+' บาท/คัน</small>';
+      b.onclick=()=>{
+        if(activePkgHours===p.hours) return;
+        activePkgHours=p.hours;
+        resetSelection();
+        renderResources();
+      };
+      prow.appendChild(b);
+    });
+    el.appendChild(prow);
+  }
 }
 function calcTotal(n){
   const a=activity();
@@ -453,6 +491,22 @@ function pkgText(n){
 }
 function toggleSlot(res, h){
   const act=activity();
+  if(act.packages){
+    const pkg=currentPkg();
+    const n=pkg.hours;
+    if(selection.resId===res.id && selection.hours.length===n && selection.hours[0]===h){
+      resetSelection(); renderResources(); return;
+    }
+    if(!canStart(res,h,n)){
+      alert('ช่วงเวลานี้ไม่พอสำหรับแพ็กเกจ '+pkg.label+' (มีคิวจองแล้ว หรือเลยเวลาปิด) กรุณาเลือกเวลาเริ่มอื่น');
+      return;
+    }
+    const hrs=[];
+    for(let k=0;k<n;k++) hrs.push(h+k);
+    selection={resId:res.id, hours:hrs};
+    renderResources();
+    return;
+  }
   if(selection.resId!==res.id){ selection={resId:res.id, hours:[]}; }
   const hrs=selection.hours;
   const i=hrs.indexOf(h);
@@ -523,7 +577,7 @@ function renderResources(){
     const hint=document.createElement('div');
     hint.className='multi-hint';
     hint.textContent=activity().consecutive
-      ? 'เลือกชั่วโมงต่อเนื่องกัน 1–'+activity().maxHours+' ชม. (ราคาตามแพ็กเกจ) แล้วกด "จองต่อ" ด้านล่าง'
+      ? '3) แตะเวลาเริ่มต้น ระบบจะเลือกให้ต่อเนื่อง '+currentPkg().hours+' ชม. ตามแพ็กเกจ แล้วกด "จองต่อ" ด้านล่าง'
       : 'แตะเลือกได้หลายชั่วโมง แล้วกด "จองต่อ" ด้านล่าง';
     panel.appendChild(hint);
 
@@ -544,8 +598,9 @@ function renderResources(){
         slot.onclick=()=>openBookedModal(res, h, label, booking);
       }else{
         const picked=selection.resId===res.id && selection.hours.includes(h);
-        slot.className='slot'+(picked?' selected':'');
-        slot.innerHTML=`<span class="time"><span class="avail-dot"></span>${label}</span><span class="status">${picked?'✓ เลือกแล้ว':'ว่าง'}</span>`;
+        const dim=!picked && activity().packages && !canStart(res,h,currentPkg().hours);
+        slot.className='slot'+(picked?' selected':'')+(dim?' dim':'');
+        slot.innerHTML=`<span class="time"><span class="avail-dot"></span>${label}</span><span class="status">${picked?'✓ เลือกแล้ว':(dim?'เวลาไม่พอ':'ว่าง')}</span>`;
         slot.onclick=()=>toggleSlot(res, h);
       }
       slotsWrap.appendChild(slot);
