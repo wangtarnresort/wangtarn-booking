@@ -151,6 +151,8 @@
   .qr-box .amount{font-family:'Kanit',sans-serif;font-weight:700;font-size:22px;color:var(--ink);}
   .qr-box .caption{font-size:11.5px;color:var(--ink-soft);text-align:center;}
 
+  .pkg-list{flex-basis:100%;display:flex;flex-wrap:wrap;gap:4px 18px;font-size:12.5px;color:var(--ink-soft);margin-top:6px;}
+  .pkg-list b{color:var(--ink);}
   .slot.selected{background:var(--ball);border-color:var(--ball-dark);}
   .slot.selected .status{color:var(--court-deep);font-weight:600;}
   .multi-hint{font-size:12px;color:var(--ink-soft);padding:10px 16px 0;}
@@ -198,7 +200,7 @@
 </section>
 
 <div class="footer-note">
-  หมายเหตุ: ข้อมูลการจองบนหน้านี้เก็บบน Firestore (wangtarn-pickleball) ทุกคนที่เข้าเว็บจะเห็นคิวเดียวกันแบบเรียลไทม์ · เข้าสู่ระบบด้วย LINE จริงผ่าน LIFF และ QR ชำระเงินเป็น QR จริงของรีสอร์ท · การชำระเงินยังไม่มีระบบตรวจสอบอัตโนมัติ ต้องรอเจ้าหน้าที่ยืนยันยอดก่อนจึงจะถือว่าจองสำเร็จ · จำนวนคัน ATV และราคา ATV เป็นตัวอย่าง ต้องแก้ให้ตรงกับของจริงของรีสอร์ท · สอบถามเพิ่มเติมติดต่อเจ้าหน้าที่ WangTarn Resort โทร [ใส่เบอร์ติดต่อจริง]
+  หมายเหตุ: ข้อมูลการจองบนหน้านี้เก็บบน Firestore (wangtarn-pickleball) ทุกคนที่เข้าเว็บจะเห็นคิวเดียวกันแบบเรียลไทม์ · เข้าสู่ระบบด้วย LINE จริงผ่าน LIFF และ QR ชำระเงินเป็น QR จริงของรีสอร์ท · การชำระเงินยังไม่มีระบบตรวจสอบอัตโนมัติ ต้องรอเจ้าหน้าที่ยืนยันยอดก่อนจึงจะถือว่าจองสำเร็จ · ช่วงเวลาเปิดให้บริการ ATV (09:00–18:00) เป็นตัวอย่าง ต้องแก้ให้ตรงกับของจริงของรีสอร์ท · สอบถามเพิ่มเติมติดต่อเจ้าหน้าที่ WangTarn Resort โทร [ใส่เบอร์ติดต่อจริง]
 </div>
 
 <div class="select-bar" id="selectBar"></div>
@@ -234,8 +236,16 @@ const ACTIVITIES=[
   {
     id:'atv', label:'ATV', emoji:'🏍️',
     slotHours:[9,10,11,12,13,14,15,16,17],
-    price:500, priceLabel:'500 บาท/คัน/ชั่วโมง (ตัวอย่าง)',
-    resources:[{id:'V1',name:'ATV คันที่ 1'},{id:'V2',name:'ATV คันที่ 2'}]
+    maxHours:4, consecutive:true,
+    tiers:{1:800,2:1500,3:2200,4:2990},
+    packages:[
+      {hours:1, label:'1 ชั่วโมง / 12 กม.', price:800},
+      {hours:2, label:'2 ชั่วโมง / 24 กม.', price:1500},
+      {hours:3, label:'3 ชั่วโมง / 31.7 กม.', price:2200},
+      {hours:4, label:'3.5–4 ชั่วโมง / 34.4 กม.', price:2990}
+    ],
+    priceLabel:'เริ่มต้น 800 บาท/คัน (ตามแพ็กเกจ)',
+    resources:[{id:'V1',name:'ATV คันที่ 1'},{id:'V2',name:'ATV คันที่ 2'},{id:'V3',name:'ATV คันที่ 3'},{id:'V4',name:'ATV คันที่ 4'}]
   },
   {
     id:'pool', label:'สระว่ายน้ำ', emoji:'🏊', mode:'daypass',
@@ -324,7 +334,10 @@ function renderActivityTabs(){
     el.appendChild(tab);
   });
   const banner=document.getElementById('activityBanner');
-  banner.innerHTML=`<h2>${activity().emoji} ${activity().label}</h2><span class="price">${activity().priceLabel}</span>`;
+  const pk=activity().packages
+    ? '<div class="pkg-list">'+activity().packages.map(p=>`<span>${p.label} = <b>${p.price.toLocaleString()} บาท/คัน</b></span>`).join('')+'</div>'
+    : '';
+  banner.innerHTML=`<h2>${activity().emoji} ${activity().label}</h2><span class="price">${activity().priceLabel}</span>${pk}`;
 }
 
 function renderDateScroller(){
@@ -377,10 +390,39 @@ function statusLabel(status){
 let selection={resId:null, hours:[]};
 function resetSelection(){ selection={resId:null, hours:[]}; renderSelectBar(); }
 function selectedResource(){ return activity().resources.find(r=>r.id===selection.resId); }
+function calcTotal(n){
+  const a=activity();
+  return a.tiers ? (a.tiers[n]||0) : n*a.price;
+}
+function pkgText(n){
+  const a=activity();
+  if(!a.packages) return '';
+  const p=a.packages.find(x=>x.hours===n);
+  return p ? p.label : '';
+}
 function toggleSlot(res, h){
+  const act=activity();
   if(selection.resId!==res.id){ selection={resId:res.id, hours:[]}; }
-  const i=selection.hours.indexOf(h);
-  if(i>=0) selection.hours.splice(i,1); else selection.hours.push(h);
+  const hrs=selection.hours;
+  const i=hrs.indexOf(h);
+  if(act.consecutive){
+    if(i>=0){
+      const isEnd=(h===hrs[0] || h===hrs[hrs.length-1]);
+      if(isEnd) hrs.splice(i,1); else selection.hours=[h];
+    }else if(hrs.length===0){
+      hrs.push(h);
+    }else if(h===hrs[0]-1 || h===hrs[hrs.length-1]+1){
+      if(act.maxHours && hrs.length>=act.maxHours){
+        alert('จอง '+act.label+' ได้สูงสุด '+act.maxHours+' ชั่วโมงต่อครั้ง');
+        return;
+      }
+      hrs.push(h);
+    }else{
+      selection.hours=[h];
+    }
+  }else{
+    if(i>=0) hrs.splice(i,1); else hrs.push(h);
+  }
   selection.hours.sort((a,b)=>a-b);
   if(selection.hours.length===0) selection.resId=null;
   renderResources();
@@ -395,11 +437,11 @@ function renderSelectBar(){
     bar.classList.remove('show'); bar.innerHTML=''; return;
   }
   const res=selectedResource();
-  const total=selection.hours.length*activity().price;
+  const total=calcTotal(selection.hours.length);
   bar.innerHTML=`
     <div class="sel-info">
       <b>${activity().label} · ${res.name}</b>
-      <span>เลือก ${selection.hours.length} ชม. (${hoursText(selection.hours)}) · รวม ${total.toLocaleString()} บาท</span>
+      <span>เลือก ${selection.hours.length} ชม. (${hoursText(selection.hours)})${pkgText(selection.hours.length)?' · แพ็กเกจ '+pkgText(selection.hours.length):''} · รวม ${total.toLocaleString()} บาท</span>
     </div>
     <div class="sel-actions">
       <button class="btn ghost" id="btnClearSel">ล้าง</button>
@@ -427,7 +469,9 @@ function renderResources(){
 
     const hint=document.createElement('div');
     hint.className='multi-hint';
-    hint.textContent='แตะเลือกได้หลายชั่วโมง แล้วกด "จองต่อ" ด้านล่าง';
+    hint.textContent=activity().consecutive
+      ? 'เลือกชั่วโมงต่อเนื่องกัน 1–'+activity().maxHours+' ชม. (ราคาตามแพ็กเกจ) แล้วกด "จองต่อ" ด้านล่าง'
+      : 'แตะเลือกได้หลายชั่วโมง แล้วกด "จองต่อ" ด้านล่าง';
     panel.appendChild(hint);
 
     const slotsWrap=document.createElement('div');
@@ -533,11 +577,11 @@ function startBookingFlow(){
 
 function openNameForm(){
   const res=selectedResource();
-  const total=selection.hours.length*activity().price;
+  const total=calcTotal(selection.hours.length);
   const box=document.getElementById('modalBox');
   box.innerHTML=`
     <h3>จอง ${activity().label} — ${res.name}</h3>
-    <p class="modal-sub">${formatDateThai(selectedISO)}<br>${selection.hours.length} ชั่วโมง: ${hoursText(selection.hours)}<br><b>รวม ${total.toLocaleString()} บาท</b></p>
+    <p class="modal-sub">${formatDateThai(selectedISO)}<br>${selection.hours.length} ชั่วโมง: ${hoursText(selection.hours)}${pkgText(selection.hours.length)?' ('+pkgText(selection.hours.length)+')':''}<br><b>รวม ${total.toLocaleString()} บาท</b></p>
     <label>ชื่อผู้จอง</label>
     <input type="text" id="fName" value="${escapeHtml(lineUser.name)}">
     <label>เบอร์โทรติดต่อ</label>
@@ -576,7 +620,7 @@ function qrBox(totalText){
 function openPaymentStep(formData){
   const res=selectedResource();
   const hours=selection.hours.slice();
-  const total=hours.length*activity().price;
+  const total=calcTotal(hours.length);
   const box=document.getElementById('modalBox');
   box.innerHTML=`
     <h3>สแกนจ่ายเพื่อยืนยันการจอง</h3>
