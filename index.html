@@ -151,7 +151,23 @@
   .qr-box .amount{font-family:'Kanit',sans-serif;font-weight:700;font-size:22px;color:var(--ink);}
   .qr-box .caption{font-size:11.5px;color:var(--ink-soft);text-align:center;}
 
-  .footer-note{max-width:1080px;margin:0 auto;padding:0 24px 50px;font-size:12.5px;color:var(--ink-soft);line-height:1.8;}
+  .slot.selected{background:var(--ball);border-color:var(--ball-dark);}
+  .slot.selected .status{color:var(--court-deep);font-weight:600;}
+  .multi-hint{font-size:12px;color:var(--ink-soft);padding:10px 16px 0;}
+  .daypass-info{padding:14px 18px 4px;font-size:13.5px;color:var(--ink-soft);line-height:1.7;}
+  .empty-pass{padding:12px;font-size:13px;color:var(--ink-soft);}
+  .select-bar{
+    position:fixed;left:0;right:0;bottom:0;z-index:40;background:var(--court-deep);color:var(--court-line);
+    padding:12px 20px;display:none;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+    box-shadow:0 -4px 16px rgba(0,0,0,0.18);
+  }
+  .select-bar.show{display:flex;}
+  .select-bar .sel-info{display:flex;flex-direction:column;font-size:12.5px;gap:2px;flex:1;min-width:200px;}
+  .select-bar .sel-info b{font-family:'Kanit',sans-serif;font-size:14px;}
+  .select-bar .sel-actions{display:flex;gap:8px;}
+  .select-bar .btn{flex:0 0 auto;padding:9px 18px;}
+  .select-bar .btn.primary{background:var(--ball);color:var(--court-deep);}
+  .footer-note{max-width:1080px;margin:0 auto;padding:0 24px 110px;font-size:12.5px;color:var(--ink-soft);line-height:1.8;}
 
   @media (max-width:760px){
     .hero h1{font-size:26px;}
@@ -182,8 +198,10 @@
 </section>
 
 <div class="footer-note">
-  หมายเหตุ: ข้อมูลการจองบนหน้านี้เก็บบน Firestore (wangtarn-pickleball) ทุกคนที่เข้าเว็บจะเห็นคิวเดียวกันแบบเรียลไทม์ · เข้าสู่ระบบด้วย LINE จริงผ่าน LIFF และ QR ชำระเงินเป็น QR จริงของรีสอร์ท · การชำระเงินยังไม่มีระบบตรวจสอบอัตโนมัติ ต้องรอเจ้าหน้าที่ยืนยันยอดก่อนจึงจะถือว่าจองสำเร็จ · จำนวนคัน ATV, ราคา และช่วงเวลาของแต่ละกิจกรรมเป็นตัวอย่าง ต้องแก้ให้ตรงกับของจริงของรีสอร์ท · สอบถามเพิ่มเติมติดต่อเจ้าหน้าที่ WangTarn Resort โทร [ใส่เบอร์ติดต่อจริง]
+  หมายเหตุ: ข้อมูลการจองบนหน้านี้เก็บบน Firestore (wangtarn-pickleball) ทุกคนที่เข้าเว็บจะเห็นคิวเดียวกันแบบเรียลไทม์ · เข้าสู่ระบบด้วย LINE จริงผ่าน LIFF และ QR ชำระเงินเป็น QR จริงของรีสอร์ท · การชำระเงินยังไม่มีระบบตรวจสอบอัตโนมัติ ต้องรอเจ้าหน้าที่ยืนยันยอดก่อนจึงจะถือว่าจองสำเร็จ · จำนวนคัน ATV และราคา ATV เป็นตัวอย่าง ต้องแก้ให้ตรงกับของจริงของรีสอร์ท · สอบถามเพิ่มเติมติดต่อเจ้าหน้าที่ WangTarn Resort โทร [ใส่เบอร์ติดต่อจริง]
 </div>
+
+<div class="select-bar" id="selectBar"></div>
 
 <div class="overlay" id="overlay">
   <div class="modal" id="modalBox"></div>
@@ -220,9 +238,10 @@ const ACTIVITIES=[
     resources:[{id:'V1',name:'ATV คันที่ 1'},{id:'V2',name:'ATV คันที่ 2'}]
   },
   {
-    id:'pool', label:'สระว่ายน้ำ', emoji:'🏊',
-    slotHours:[8,9,10,11,12,13,14,15,16,17,18],
-    price:0, priceLabel:'ติดต่อสอบถามเจ้าหน้าที่ (ตัวอย่าง)',
+    id:'pool', label:'สระว่ายน้ำ', emoji:'🏊', mode:'daypass',
+    openHoursLabel:'เปิดให้บริการ 08:00–20:00 น. (ไม่จำกัดเวลาอยู่)',
+    priceAdult:60, priceChild:40,
+    priceLabel:'ผู้ใหญ่ 60 บาท / เด็ก 40 บาท',
     resources:[{id:'POOL',name:'สระว่ายน้ำหลัก'}]
   }
 ];
@@ -354,7 +373,45 @@ function statusLabel(status){
   return 'ว่าง';
 }
 
+// ---- การเลือกหลายชั่วโมง (กิจกรรมแบบรายชั่วโมง) ----
+let selection={resId:null, hours:[]};
+function resetSelection(){ selection={resId:null, hours:[]}; renderSelectBar(); }
+function selectedResource(){ return activity().resources.find(r=>r.id===selection.resId); }
+function toggleSlot(res, h){
+  if(selection.resId!==res.id){ selection={resId:res.id, hours:[]}; }
+  const i=selection.hours.indexOf(h);
+  if(i>=0) selection.hours.splice(i,1); else selection.hours.push(h);
+  selection.hours.sort((a,b)=>a-b);
+  if(selection.hours.length===0) selection.resId=null;
+  renderResources();
+}
+function hoursText(hours){
+  return hours.map(h=>timeLabel(h)+'–'+timeLabel(h+1)).join(', ');
+}
+function renderSelectBar(){
+  const bar=document.getElementById('selectBar');
+  if(!bar) return;
+  if(activity().mode==='daypass' || selection.hours.length===0){
+    bar.classList.remove('show'); bar.innerHTML=''; return;
+  }
+  const res=selectedResource();
+  const total=selection.hours.length*activity().price;
+  bar.innerHTML=`
+    <div class="sel-info">
+      <b>${activity().label} · ${res.name}</b>
+      <span>เลือก ${selection.hours.length} ชม. (${hoursText(selection.hours)}) · รวม ${total.toLocaleString()} บาท</span>
+    </div>
+    <div class="sel-actions">
+      <button class="btn ghost" id="btnClearSel">ล้าง</button>
+      <button class="btn primary" id="btnGoBook">จองต่อ</button>
+    </div>`;
+  bar.classList.add('show');
+  document.getElementById('btnClearSel').onclick=()=>{ resetSelection(); renderResources(); };
+  document.getElementById('btnGoBook').onclick=startBookingFlow;
+}
+
 function renderResources(){
+  if(activity().mode==='daypass'){ renderDaypass(); return; }
   const grid=document.getElementById('resourcesGrid');
   grid.className='resources-grid'+(activity().resources.length===1?' single':'');
   grid.innerHTML='';
@@ -367,6 +424,11 @@ function renderResources(){
     head.className='resource-head';
     head.innerHTML=`<span class="cname">${res.name}</span><span class="ccount">จองสำเร็จ ${bookedCount}/${slotHours.length} ช่วงเวลา</span>`;
     panel.appendChild(head);
+
+    const hint=document.createElement('div');
+    hint.className='multi-hint';
+    hint.textContent='แตะเลือกได้หลายชั่วโมง แล้วกด "จองต่อ" ด้านล่าง';
+    panel.appendChild(hint);
 
     const slotsWrap=document.createElement('div');
     slotsWrap.className='slots';
@@ -384,9 +446,10 @@ function renderResources(){
         slot.innerHTML=`<span class="time"><span class="avail-dot"></span>${label}</span><span class="status">${statusLabel(booking.status)}</span>`;
         slot.onclick=()=>openBookedModal(res, h, label, booking);
       }else{
-        slot.className='slot';
-        slot.innerHTML=`<span class="time"><span class="avail-dot"></span>${label}</span><span class="status">ว่าง</span>`;
-        slot.onclick=()=>startBookingFlow(res, h, label);
+        const picked=selection.resId===res.id && selection.hours.includes(h);
+        slot.className='slot'+(picked?' selected':'');
+        slot.innerHTML=`<span class="time"><span class="avail-dot"></span>${label}</span><span class="status">${picked?'✓ เลือกแล้ว':'ว่าง'}</span>`;
+        slot.onclick=()=>toggleSlot(res, h);
       }
       slotsWrap.appendChild(slot);
     });
@@ -399,26 +462,82 @@ function renderResources(){
 
     grid.appendChild(panel);
   });
+  renderSelectBar();
+}
+
+// ---- สระว่ายน้ำ: จองเข้าใช้ทั้งวัน (ผู้ใหญ่/เด็ก) ----
+function renderDaypass(){
+  const grid=document.getElementById('resourcesGrid');
+  grid.className='resources-grid single';
+  grid.innerHTML='';
+  const act=activity();
+  act.resources.forEach(res=>{
+    const entries=Object.entries(currentBookings[res.id]||{}).sort((a,b)=>(a[1].bookedAt||'').localeCompare(b[1].bookedAt||''));
+    const confirmedCount=entries.filter(([,b])=>b.status==='confirmed').length;
+    const panel=document.createElement('div');
+    panel.className='resource-panel';
+    panel.innerHTML=`
+      <div class="resource-head"><span class="cname">${res.name}</span><span class="ccount">จองสำเร็จ ${confirmedCount} คิว</span></div>
+      <div class="daypass-info">${act.openHoursLabel}<br>ราคา: ${act.priceLabel}</div>`;
+    const list=document.createElement('div');
+    list.className='slots';
+    if(entries.length===0){
+      const empty=document.createElement('div');
+      empty.className='empty-pass';
+      empty.textContent='ยังไม่มีคิวจองสำหรับวันนี้';
+      list.appendChild(empty);
+    }
+    entries.forEach(([entryId,b])=>{
+      const row=document.createElement('div');
+      row.className='slot '+(b.status==='confirmed'?'booked':'pending');
+      row.innerHTML=`<span class="time" style="font-size:13px">${escapeHtml(b.name)} · ผู้ใหญ่ ${b.adults||0} เด็ก ${b.children||0}</span><span class="status">${statusLabel(b.status)}</span>`;
+      row.onclick=()=>openDaypassModal(res, entryId, b);
+      list.appendChild(row);
+    });
+    panel.appendChild(list);
+    const addWrap=document.createElement('div');
+    addWrap.style.padding='0 12px 14px';
+    const addBtn=document.createElement('button');
+    addBtn.className='btn primary';
+    addBtn.style.width='100%';
+    addBtn.textContent='จองเข้าใช้สระวันนี้';
+    addBtn.onclick=()=>{
+      if(!requireLogin()) return;
+      openDaypassForm(res);
+    };
+    addWrap.appendChild(addBtn);
+    panel.appendChild(addWrap);
+    grid.appendChild(panel);
+  });
+  renderSelectBar();
 }
 
 function closeModal(){
   document.getElementById('overlay').classList.remove('show');
 }
 
-function startBookingFlow(res, hour, label){
+function requireLogin(){
   if(!lineUser){
-    alert('กรุณาเข้าสู่ระบบด้วย LINE ก่อนจอง (กดปุ่มมุมขวาบน) แล้วเลือกช่วงเวลานี้อีกครั้ง');
+    alert('กรุณาเข้าสู่ระบบด้วย LINE ก่อนจอง (กดปุ่มมุมขวาบน) แล้วลองอีกครั้ง');
     if(!liff.isLoggedIn()) liff.login();
-    return;
+    return false;
   }
-  openNameForm(res, hour, label);
+  return true;
 }
 
-function openNameForm(res, hour, label){
+function startBookingFlow(){
+  if(!requireLogin()) return;
+  if(selection.hours.length===0) return;
+  openNameForm();
+}
+
+function openNameForm(){
+  const res=selectedResource();
+  const total=selection.hours.length*activity().price;
   const box=document.getElementById('modalBox');
   box.innerHTML=`
     <h3>จอง ${activity().label} — ${res.name}</h3>
-    <p class="modal-sub">${formatDateThai(selectedISO)} · เวลา ${label}</p>
+    <p class="modal-sub">${formatDateThai(selectedISO)}<br>${selection.hours.length} ชั่วโมง: ${hoursText(selection.hours)}<br><b>รวม ${total.toLocaleString()} บาท</b></p>
     <label>ชื่อผู้จอง</label>
     <input type="text" id="fName" value="${escapeHtml(lineUser.name)}">
     <label>เบอร์โทรติดต่อ</label>
@@ -441,20 +560,28 @@ function openNameForm(res, hour, label){
       document.getElementById('fErr').style.display='block';
       return;
     }
-    openPaymentStep(res, hour, label, {name, phone, players});
+    openPaymentStep({name, phone, players});
   };
 }
 
-function openPaymentStep(res, hour, label, formData){
+function qrBox(totalText){
+  return `
+    <div class="qr-box">
+      <img src="${PAYMENT_QR_URI}" alt="QR ชำระเงิน" style="width:190px;height:auto;border-radius:8px;">
+      <div class="amount">${totalText}</div>
+      <div class="caption">สแกนจ่ายผ่านแอปธนาคาร แล้วกด "แจ้งว่าจ่ายแล้ว" — เจ้าหน้าที่จะตรวจสอบยอดและยืนยันอีกครั้ง</div>
+    </div>`;
+}
+
+function openPaymentStep(formData){
+  const res=selectedResource();
+  const hours=selection.hours.slice();
+  const total=hours.length*activity().price;
   const box=document.getElementById('modalBox');
   box.innerHTML=`
     <h3>สแกนจ่ายเพื่อยืนยันการจอง</h3>
-    <p class="modal-sub">${activity().label} · ${res.name} · ${formatDateThai(selectedISO)} · ${label}</p>
-    <div class="qr-box">
-      <img src="${PAYMENT_QR_URI}" alt="QR ชำระเงิน" style="width:190px;height:auto;border-radius:8px;">
-      <div class="amount">${activity().priceLabel}</div>
-      <div class="caption">สแกนจ่ายผ่านแอปธนาคาร แล้วกด "แจ้งว่าจ่ายแล้ว" — เจ้าหน้าที่จะตรวจสอบยอดและยืนยันอีกครั้งในแผงเจ้าหน้าที่</div>
-    </div>
+    <p class="modal-sub">${activity().label} · ${res.name} · ${formatDateThai(selectedISO)}<br>${hours.length} ชั่วโมง: ${hoursText(hours)}</p>
+    ${qrBox(total.toLocaleString()+' บาท')}
     <div class="modal-actions">
       <button class="btn ghost" id="btnCancel">ยกเลิก</button>
       <button class="btn primary" id="btnPaid">แจ้งว่าจ่ายแล้ว</button>
@@ -466,15 +593,151 @@ function openPaymentStep(res, hour, label, formData){
     btn.textContent='กำลังบันทึก...';
     btn.disabled=true;
     const fresh=await loadBookingsForDate(selectedISO);
-    if(fresh[res.id][String(hour)]){
-      alert('ช่วงเวลานี้เพิ่งถูกจองไปแล้ว กรุณาเลือกช่วงเวลาอื่น');
+    const taken=hours.filter(h=>fresh[res.id][String(h)]);
+    if(taken.length>0){
+      alert('บางช่วงเวลาที่เลือกเพิ่งถูกจองไปแล้ว ('+hoursText(taken)+') กรุณาเลือกใหม่');
       closeModal();
       currentBookings=fresh;
+      resetSelection();
       renderResources();
       return;
     }
-    fresh[res.id][String(hour)]={
-      name:formData.name, phone:formData.phone, players:formData.players,
+    const groupId='g'+Date.now();
+    const nowIso=new Date().toISOString();
+    hours.forEach(h=>{
+      fresh[res.id][String(h)]={
+        name:formData.name, phone:formData.phone, players:formData.players,
+        lineUserId:lineUser.uid, lineName:lineUser.name,
+        groupId, groupHours:hours, groupTotal:total,
+        status:'pending_payment', bookedAt:nowIso
+      };
+    });
+    const ok=await saveBookingsForDate(selectedISO, fresh);
+    if(ok){
+      currentBookings=fresh;
+      closeModal();
+      resetSelection();
+      renderResources();
+    }else{
+      alert('บันทึกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
+      btn.textContent='แจ้งว่าจ่ายแล้ว';
+      btn.disabled=false;
+    }
+  };
+}
+
+function openBookedModal(res, hour, label, booking){
+  const box=document.getElementById('modalBox');
+  const isOwner=lineUser && booking.lineUserId===lineUser.uid;
+  const groupLine=(booking.groupHours && booking.groupHours.length>1)
+    ? `<div><b>จองรวม:</b> ${booking.groupHours.length} ชม. (${hoursText(booking.groupHours)})</div>` : '';
+  box.innerHTML=`
+    <h3>${res.name} · ${label}</h3>
+    <p class="modal-sub">${activity().label} · ${formatDateThai(selectedISO)} · สถานะ: ${statusLabel(booking.status)}</p>
+    <div class="booking-info">
+      <div><b>ชื่อผู้จอง:</b> ${escapeHtml(booking.name)}</div>
+      <div><b>เบอร์โทร:</b> ${escapeHtml(booking.phone)}</div>
+      ${booking.players?`<div><b>จำนวนผู้ร่วม:</b> ${escapeHtml(booking.players)}</div>`:''}
+      ${groupLine}
+    </div>
+    <div class="modal-actions">
+      <button class="btn ghost" id="btnClose">ปิด</button>
+      ${isOwner?'<button class="btn danger" id="btnCancelBooking">ยกเลิกการจอง</button>':''}
+    </div>
+  `;
+  document.getElementById('overlay').classList.add('show');
+  document.getElementById('btnClose').onclick=closeModal;
+  const cancelBtn=document.getElementById('btnCancelBooking');
+  if(cancelBtn){
+    cancelBtn.onclick=async()=>{
+      cancelBtn.textContent='กำลังยกเลิก...';
+      cancelBtn.disabled=true;
+      const fresh=await loadBookingsForDate(selectedISO);
+      Object.keys(fresh[res.id]).forEach(k=>{
+        const b=fresh[res.id][k];
+        if(k===String(hour) || (booking.groupId && b.groupId===booking.groupId)) delete fresh[res.id][k];
+      });
+      const ok=await saveBookingsForDate(selectedISO, fresh);
+      if(ok){
+        currentBookings=fresh;
+        closeModal();
+        renderResources();
+      }else{
+        alert('ยกเลิกไม่สำเร็จ กรุณาลองใหม่');
+        cancelBtn.textContent='ยกเลิกการจอง';
+        cancelBtn.disabled=false;
+      }
+    };
+  }
+}
+
+// ---- สระว่ายน้ำ: ฟอร์ม/ชำระเงิน/รายละเอียด ----
+function openDaypassForm(res){
+  const act=activity();
+  const box=document.getElementById('modalBox');
+  box.innerHTML=`
+    <h3>จองเข้าใช้ ${act.label}</h3>
+    <p class="modal-sub">${formatDateThai(selectedISO)}<br>${act.openHoursLabel}</p>
+    <label>ชื่อผู้จอง</label>
+    <input type="text" id="fName" value="${escapeHtml(lineUser.name)}">
+    <label>เบอร์โทรติดต่อ</label>
+    <input type="text" id="fPhone" placeholder="0812345678">
+    <label>ผู้ใหญ่ (${act.priceAdult} บาท/คน)</label>
+    <input type="number" id="fAdults" min="0" value="1">
+    <label>เด็ก (${act.priceChild} บาท/คน)</label>
+    <input type="number" id="fChildren" min="0" value="0">
+    <p class="modal-sub" style="margin-top:12px"><b id="fTotal"></b></p>
+    <div class="form-err" id="fErr">กรุณากรอกชื่อ เบอร์โทร และจำนวนคนอย่างน้อย 1 คน</div>
+    <div class="modal-actions">
+      <button class="btn ghost" id="btnCancel">ยกเลิก</button>
+      <button class="btn primary" id="btnNext">ไปหน้าชำระเงิน</button>
+    </div>
+  `;
+  document.getElementById('overlay').classList.add('show');
+  const calc=()=>{
+    const a=Math.max(0,parseInt(document.getElementById('fAdults').value)||0);
+    const c=Math.max(0,parseInt(document.getElementById('fChildren').value)||0);
+    document.getElementById('fTotal').textContent='รวม '+(a*act.priceAdult+c*act.priceChild).toLocaleString()+' บาท';
+    return {a,c};
+  };
+  document.getElementById('fAdults').oninput=calc;
+  document.getElementById('fChildren').oninput=calc;
+  calc();
+  document.getElementById('btnCancel').onclick=closeModal;
+  document.getElementById('btnNext').onclick=()=>{
+    const name=document.getElementById('fName').value.trim();
+    const phone=document.getElementById('fPhone').value.trim();
+    const {a,c}=calc();
+    if(!name||!phone||(a+c)<1){
+      document.getElementById('fErr').style.display='block';
+      return;
+    }
+    openDaypassPayment(res,{name,phone,adults:a,children:c});
+  };
+}
+
+function openDaypassPayment(res, f){
+  const act=activity();
+  const total=f.adults*act.priceAdult+f.children*act.priceChild;
+  const box=document.getElementById('modalBox');
+  box.innerHTML=`
+    <h3>สแกนจ่ายเพื่อยืนยันการจอง</h3>
+    <p class="modal-sub">${act.label} · ${formatDateThai(selectedISO)}<br>ผู้ใหญ่ ${f.adults} คน · เด็ก ${f.children} คน</p>
+    ${qrBox(total.toLocaleString()+' บาท')}
+    <div class="modal-actions">
+      <button class="btn ghost" id="btnCancel">ยกเลิก</button>
+      <button class="btn primary" id="btnPaid">แจ้งว่าจ่ายแล้ว</button>
+    </div>
+  `;
+  document.getElementById('btnCancel').onclick=closeModal;
+  document.getElementById('btnPaid').onclick=async()=>{
+    const btn=document.getElementById('btnPaid');
+    btn.textContent='กำลังบันทึก...';
+    btn.disabled=true;
+    const fresh=await loadBookingsForDate(selectedISO);
+    const entryId='e'+Date.now()+Math.floor(Math.random()*1000);
+    fresh[res.id][entryId]={
+      name:f.name, phone:f.phone, adults:f.adults, children:f.children, total,
       lineUserId:lineUser.uid, lineName:lineUser.name,
       status:'pending_payment', bookedAt:new Date().toISOString()
     };
@@ -491,16 +754,17 @@ function openPaymentStep(res, hour, label, formData){
   };
 }
 
-function openBookedModal(res, hour, label, booking){
+function openDaypassModal(res, entryId, b){
   const box=document.getElementById('modalBox');
-  const isOwner=lineUser && booking.lineUserId===lineUser.uid;
+  const isOwner=lineUser && b.lineUserId===lineUser.uid;
   box.innerHTML=`
-    <h3>${res.name} · ${label}</h3>
-    <p class="modal-sub">${activity().label} · ${formatDateThai(selectedISO)} · สถานะ: ${statusLabel(booking.status)}</p>
+    <h3>${activity().label}</h3>
+    <p class="modal-sub">${formatDateThai(selectedISO)} · สถานะ: ${statusLabel(b.status)}</p>
     <div class="booking-info">
-      <div><b>ชื่อผู้จอง:</b> ${escapeHtml(booking.name)}</div>
-      <div><b>เบอร์โทร:</b> ${escapeHtml(booking.phone)}</div>
-      ${booking.players?`<div><b>จำนวนผู้ร่วม:</b> ${escapeHtml(booking.players)}</div>`:''}
+      <div><b>ชื่อผู้จอง:</b> ${escapeHtml(b.name)}</div>
+      <div><b>เบอร์โทร:</b> ${escapeHtml(b.phone)}</div>
+      <div><b>จำนวน:</b> ผู้ใหญ่ ${b.adults||0} คน · เด็ก ${b.children||0} คน</div>
+      ${b.total?`<div><b>ยอดรวม:</b> ${Number(b.total).toLocaleString()} บาท</div>`:''}
     </div>
     <div class="modal-actions">
       <button class="btn ghost" id="btnClose">ปิด</button>
@@ -515,7 +779,7 @@ function openBookedModal(res, hour, label, booking){
       cancelBtn.textContent='กำลังยกเลิก...';
       cancelBtn.disabled=true;
       const fresh=await loadBookingsForDate(selectedISO);
-      delete fresh[res.id][String(hour)];
+      delete fresh[res.id][entryId];
       const ok=await saveBookingsForDate(selectedISO, fresh);
       if(ok){
         currentBookings=fresh;
@@ -537,6 +801,7 @@ function formatDateThai(iso){
 }
 
 async function loadAndRender(){
+  resetSelection();
   renderDateScroller();
   document.getElementById('resourcesGrid').innerHTML='<div style="padding:30px;color:var(--ink-soft);font-size:14px;">กำลังโหลดตารางจอง...</div>';
   currentBookings=await loadBookingsForDate(selectedISO);
