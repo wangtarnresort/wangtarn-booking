@@ -164,6 +164,8 @@
   .picker-btn.active{background:var(--court-deep);border-color:var(--court-deep);color:var(--ball);}
   .picker-btn.active small{color:#B9CEC6;}
   .slot.dim{opacity:0.45;}
+  .slot.past{opacity:0.4;cursor:not-allowed;background:#E9E6DA;}
+  .slot.past:hover{transform:none;border-color:#E4E0D2;}
   .pkg-list{flex-basis:100%;display:flex;flex-wrap:wrap;gap:4px 18px;font-size:12.5px;color:var(--ink-soft);margin-top:6px;}
   .pkg-list b{color:var(--ink);}
   .slot.selected{background:var(--ball);border-color:var(--ball-dark);}
@@ -264,6 +266,7 @@ const ACTIVITIES=[
   {
     id:'pool', label:'สระว่ายน้ำ', emoji:'🏊', mode:'daypass',
     openHoursLabel:'เปิดให้บริการ 08:00–20:00 น. (ไม่จำกัดเวลาอยู่)',
+    closeHour:20,
     priceAdult:60, priceChild:40,
     priceLabel:'ผู้ใหญ่ 60 บาท / เด็ก 40 บาท',
     resources:[{id:'POOL',name:'สระว่ายน้ำหลัก'}]
@@ -287,11 +290,28 @@ function escapeHtml(str){
   return div.innerHTML;
 }
 
+// เวลาปัจจุบันตามเวลาประเทศไทย (ไม่ขึ้นกับเขตเวลาของเครื่อง)
+function bkkNow(){
+  const parts=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Bangkok',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date());
+  const g=t=>parseInt(parts.find(p=>p.type===t).value,10);
+  return {y:g('year'),m:g('month'),d:g('day'),h:g('hour'),min:g('minute')};
+}
+function todayISO(){
+  const n=bkkNow();
+  return n.y+'-'+String(n.m).padStart(2,'0')+'-'+String(n.d).padStart(2,'0');
+}
+// ช่วงเวลาที่เริ่มไปแล้ว (เช่น ตอนนี้ 08:xx ช่วง 07:00 ถือว่าผ่านไปแล้ว ส่วนช่วง 08:00 ที่กำลังดำเนินอยู่ยังจองได้)
+function isPastSlot(h){
+  const t=todayISO();
+  if(selectedISO<t) return true;
+  if(selectedISO>t) return false;
+  return h<bkkNow().h;
+}
+
 const dates=[];
-for(let i=0;i<14;i++){
-  const d=new Date();
-  d.setDate(d.getDate()+i);
-  dates.push(d);
+{
+  const n=bkkNow();
+  for(let k=0;k<14;k++) dates.push(new Date(n.y,n.m-1,n.d+k));
 }
 
 let selectedISO=isoDate(dates[0]);
@@ -416,6 +436,7 @@ function canStart(res,h,n){
   for(let k=0;k<n;k++){
     const x=h+k;
     if(!a.slotHours.includes(x)) return false;
+    if(isPastSlot(x)) return false;
     if(currentBookings[res.id] && currentBookings[res.id][String(x)]) return false;
   }
   return true;
@@ -596,6 +617,9 @@ function renderResources(){
         slot.className='slot pending';
         slot.innerHTML=`<span class="time"><span class="avail-dot"></span>${label}</span><span class="status">${statusLabel(booking.status)}</span>`;
         slot.onclick=()=>openBookedModal(res, h, label, booking);
+      }else if(isPastSlot(h)){
+        slot.className='slot past';
+        slot.innerHTML=`<span class="time">${label}</span><span class="status">ผ่านไปแล้ว</span>`;
       }else{
         const picked=selection.resId===res.id && selection.hours.includes(h);
         const dim=!picked && activity().packages && !canStart(res,h,currentPkg().hours);
@@ -653,6 +677,12 @@ function renderDaypass(){
     addBtn.className='btn primary';
     addBtn.style.width='100%';
     addBtn.textContent='จองเข้าใช้สระวันนี้';
+    const poolClosed=selectedISO<todayISO() || (selectedISO===todayISO() && bkkNow().h>=act.closeHour);
+    if(poolClosed){
+      addBtn.disabled=true;
+      addBtn.style.opacity='0.5';
+      addBtn.textContent='ปิดให้บริการแล้ว';
+    }
     addBtn.onclick=async()=>{
       if(!(await requireLogin())) return;
       openDaypassForm(res);
@@ -668,6 +698,17 @@ function closeModal(){
   document.getElementById('overlay').classList.remove('show');
 }
 
+// ส่งแจ้งเตือนเข้า LINE เจ้าหน้าที่ (ไม่รอผล และถ้าส่งไม่สำเร็จก็ไม่กระทบการจอง)
+function notifyAdmin(payload){
+  try{
+    fetch('/api/notify',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(payload),
+      keepalive:true
+    }).catch(()=>{});
+  }catch(e){}
+}
 let liffReady=null;
 // รอให้ LIFF เตรียมระบบเสร็จก่อนตรวจว่าล็อกอินแล้วหรือยัง (กันกรณีกดเร็วเกินไป)
 async function requireLogin(){
@@ -748,6 +789,15 @@ function openPaymentStep(formData){
     btn.textContent='กำลังบันทึก...';
     btn.disabled=true;
     const fresh=await loadBookingsForDate(selectedISO);
+    const late=hours.filter(isPastSlot);
+    if(late.length>0){
+      alert('บางช่วงเวลาที่เลือกผ่านไปแล้ว ('+hoursText(late)+') กรุณาเลือกใหม่');
+      closeModal();
+      currentBookings=fresh;
+      resetSelection();
+      renderResources();
+      return;
+    }
     const taken=hours.filter(h=>fresh[res.id][String(h)]);
     if(taken.length>0){
       alert('บางช่วงเวลาที่เลือกเพิ่งถูกจองไปแล้ว ('+hoursText(taken)+') กรุณาเลือกใหม่');
@@ -773,6 +823,12 @@ function openPaymentStep(formData){
       closeModal();
       resetSelection();
       renderResources();
+      notifyAdmin({
+        activity:activity().label, resource:res.name, dateText:formatDateThai(selectedISO),
+        timeText:hoursText(hours)+(pkgText(hours.length)?' ('+pkgText(hours.length)+')':''),
+        name:formData.name, phone:formData.phone, total,
+        extra:formData.players?'ผู้ร่วม '+formData.players:''
+      });
     }else{
       alert('บันทึกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
       btn.textContent='แจ้งว่าจ่ายแล้ว';
@@ -901,6 +957,12 @@ function openDaypassPayment(res, f){
       currentBookings=fresh;
       closeModal();
       renderResources();
+      notifyAdmin({
+        activity:act.label, resource:res.name, dateText:formatDateThai(selectedISO),
+        timeText:'เข้าใช้ทั้งวัน (ไม่จำกัดเวลา)',
+        name:f.name, phone:f.phone, total,
+        extra:'ผู้ใหญ่ '+f.adults+' คน เด็ก '+f.children+' คน'
+      });
     }else{
       alert('บันทึกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
       btn.textContent='แจ้งว่าจ่ายแล้ว';
@@ -966,6 +1028,17 @@ async function loadAndRender(){
 document.getElementById('overlay').addEventListener('click',(e)=>{
   if(e.target.id==='overlay')closeModal();
 });
+
+setInterval(()=>{
+  if(document.getElementById('overlay').classList.contains('show')) return;
+  const first=activity().resources[0].id;
+  if(!currentBookings || !currentBookings[first]) return;
+  if(selection.hours.length){
+    selection.hours=selection.hours.filter(h=>!isPastSlot(h));
+    if(selection.hours.length===0) selection.resId=null;
+  }
+  renderResources();
+},60000);
 
 renderActivityTabs();
 liffReady=restoreSession();
