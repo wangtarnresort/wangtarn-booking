@@ -653,8 +653,8 @@ function renderDaypass(){
     addBtn.className='btn primary';
     addBtn.style.width='100%';
     addBtn.textContent='จองเข้าใช้สระวันนี้';
-    addBtn.onclick=()=>{
-      if(!requireLogin()) return;
+    addBtn.onclick=async()=>{
+      if(!(await requireLogin())) return;
       openDaypassForm(res);
     };
     addWrap.appendChild(addBtn);
@@ -668,17 +668,20 @@ function closeModal(){
   document.getElementById('overlay').classList.remove('show');
 }
 
-function requireLogin(){
+let liffReady=null;
+// รอให้ LIFF เตรียมระบบเสร็จก่อนตรวจว่าล็อกอินแล้วหรือยัง (กันกรณีกดเร็วเกินไป)
+async function requireLogin(){
+  if(liffReady){ try{ await liffReady; }catch(e){} }
   if(!lineUser){
-    alert('กรุณาเข้าสู่ระบบด้วย LINE ก่อนจอง (กดปุ่มมุมขวาบน) แล้วลองอีกครั้ง');
-    if(!liff.isLoggedIn()) liff.login();
+    alert('กรุณาเข้าสู่ระบบด้วย LINE ก่อนจอง ระบบกำลังพาไปหน้าเข้าสู่ระบบ');
+    try{ if(!liff.isLoggedIn()) liff.login(); }catch(e){ console.error(e); }
     return false;
   }
   return true;
 }
 
-function startBookingFlow(){
-  if(!requireLogin()) return;
+async function startBookingFlow(){
+  if(!(await requireLogin())) return;
   if(selection.hours.length===0) return;
   openNameForm();
 }
@@ -965,7 +968,7 @@ document.getElementById('overlay').addEventListener('click',(e)=>{
 });
 
 renderActivityTabs();
-restoreSession();
+liffReady=restoreSession();
 loadAndRender();
 </script>
 
