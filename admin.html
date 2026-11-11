@@ -130,6 +130,7 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
+try{ db.settings({experimentalAutoDetectLongPolling:true, merge:true}); }catch(e){ console.warn('firestore settings', e); }
 
 const ACTIVITIES=[
   {
@@ -179,11 +180,19 @@ for(let i=0;i<14;i++){
 let selectedISO=isoDate(dates[0]);
 let currentBookings={A:{},B:{}};
 
-async function loadBookingsForDate(iso){
+let lastNetError='';
+function withTimeout(p,ms){
+  const limit=ms||window.WT_NET_TIMEOUT||15000;
+  let timer;
+  const to=new Promise((_,rej)=>{ timer=setTimeout(()=>rej(Object.assign(new Error('timeout'),{code:'timeout'})),limit); });
+  return Promise.race([p,to]).finally(()=>clearTimeout(timer));
+}
+// strict=true: ถ้าโหลดไม่สำเร็จให้โยน error (ใช้ก่อนเขียนข้อมูล กันเขียนทับด้วยข้อมูลว่าง)
+async function loadBookingsForDate(iso, strict){
   const result={};
   activity().resources.forEach(r=>{ result[r.id]={}; });
   try{
-    const docSnap=await db.collection(collectionName()).doc(iso).get();
+    const docSnap=await withTimeout(db.collection(collectionName()).doc(iso).get());
     if(docSnap.exists){
       const data=docSnap.data();
       activity().resources.forEach(r=>{ result[r.id]=data[r.id]||{}; });
@@ -191,15 +200,18 @@ async function loadBookingsForDate(iso){
     return result;
   }catch(e){
     console.error(e);
+    lastNetError=(e && e.code) || String(e);
+    if(strict) throw e;
     return result;
   }
 }
 async function saveBookingsForDate(iso, data){
   try{
-    await db.collection(collectionName()).doc(iso).set(data);
+    await withTimeout(db.collection(collectionName()).doc(iso).set(data));
     return true;
   }catch(e){
     console.error(e);
+    lastNetError=(e && e.code) || String(e);
     return false;
   }
 }
@@ -296,7 +308,11 @@ function renderCourts(){
 
 // ยืนยัน/ปฏิเสธ: ถ้าจองหลายชั่วโมงในครั้งเดียว (groupId เดียวกัน) จะทำทั้งกลุ่มพร้อมกัน
 async function updateBooking(courtId, key, action){
-  const fresh=await loadBookingsForDate(selectedISO);
+  const fresh=await loadBookingsForDate(selectedISO,true).catch(()=>null);
+  if(!fresh){
+    alert('โหลดข้อมูลล่าสุดไม่สำเร็จ ไม่ได้บันทึกอะไร กรุณาลองใหม่ ('+lastNetError+')');
+    return;
+  }
   const target=fresh[courtId][key];
   if(!target) return;
   const gid=target.groupId;
@@ -316,7 +332,7 @@ async function updateBooking(courtId, key, action){
     currentBookings=fresh;
     renderCourts();
   }else{
-    alert('บันทึกไม่สำเร็จ กรุณาลองใหม่');
+    alert('บันทึกไม่สำเร็จ กรุณาลองใหม่ ('+lastNetError+')');
   }
 }
 
