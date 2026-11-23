@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>ดู LINE user ID | WangTarn Resort</title>
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<style>
+  body{margin:0;background:#EFEEE3;font-family:'Noto Sans Thai','Kanit',sans-serif;color:#152420;display:flex;justify-content:center;padding:24px;}
+  .card{background:#fff;border-radius:16px;max-width:420px;width:100%;padding:24px;margin-top:40px;}
+  h1{font-size:20px;margin:0 0 8px;}
+  p{font-size:14px;color:#4B615A;line-height:1.7;margin:0 0 14px;}
+  code{display:block;background:#F4EFE1;border-radius:10px;padding:12px;font-size:14px;word-break:break-all;margin-bottom:12px;}
+  button{border:none;border-radius:9px;padding:11px 16px;font-size:14px;font-weight:600;cursor:pointer;width:100%;}
+  .green{background:#06C755;color:#fff;}
+  .dark{background:#173C33;color:#D7E85B;}
+  [hidden]{display:none !important;}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>ดู LINE user ID ของฉัน</h1>
+  <p id="msg">กำลังตรวจสอบ...</p>
+  <div id="out" hidden>
+    <p>ชื่อ LINE: <b id="name"></b></p>
+    <code id="uid"></code>
+    <button class="dark" id="copy">คัดลอก user ID</button>
+    <p style="margin-top:14px">ส่งเลขนี้ให้เจ้าของระบบเพื่อเพิ่มในรายชื่อผู้รับแจ้งเตือน (ส่งให้เฉพาะผู้ดูแลระบบเท่านั้น)</p>
+  </div>
+  <button class="green" id="login" hidden>เข้าสู่ระบบด้วย LINE</button>
+</div>
+<script>
+const LIFF_ID='2011007297-cxIY770x';
+const $=id=>document.getElementById(id);
+(async()=>{
+  try{
+    await liff.init({liffId:LIFF_ID});
+    if(!liff.isLoggedIn()){
+      $('msg').textContent='กดปุ่มด้านล่างเพื่อเข้าสู่ระบบด้วย LINE แล้วระบบจะแสดง user ID';
+      $('login').hidden=false;
+      $('login').onclick=()=>liff.login();
+      return;
+    }
+    const p=await liff.getProfile();
+    $('msg').textContent='เข้าสู่ระบบสำเร็จ นี่คือ user ID ของบัญชี LINE นี้';
+    $('name').textContent=p.displayName;
+    $('uid').textContent=p.userId;
+    $('out').hidden=false;
+    $('copy').onclick=async()=>{
+      try{ await navigator.clipboard.writeText(p.userId); $('copy').textContent='คัดลอกแล้ว'; }
+      catch(e){ const r=document.createRange(); r.selectNodeContents($('uid')); const s=getSelection(); s.removeAllRanges(); s.addRange(r); $('copy').textContent='แตะค้างที่เลขเพื่อคัดลอก'; }
+    };
+  }catch(e){
+    console.error(e);
+    $('msg').textContent='เปิดหน้านี้ไม่สำเร็จ: '+(e&&e.message?e.message:e);
+  }
+})();
+</script>
+</body>
+</html>
