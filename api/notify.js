@@ -22,16 +22,27 @@ function clean(value, max) {
 }
 
 module.exports = async (req, res) => {
-  if (req.method !== 'POST') {
-    res.status(405).json({ error: 'method not allowed' });
-    return;
-  }
-
   const token = process.env.LINE_CHANNEL_ACCESS_TOKEN;
   const adminIds = (process.env.LINE_ADMIN_USER_IDS || '')
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean);
+
+  // เปิดลิงก์นี้ในเบราว์เซอร์เพื่อเช็คสถานะการตั้งค่า (ไม่แสดงค่าลับ)
+  if (req.method === 'GET') {
+    res.status(200).json({
+      function: 'ok',
+      tokenSet: Boolean(token),
+      adminIdCount: adminIds.length,
+    });
+    return;
+  }
+
+  if (req.method !== 'POST') {
+    res.status(405).json({ error: 'method not allowed' });
+    return;
+  }
+
   if (!token || adminIds.length === 0) {
     res.status(500).json({ error: 'notification is not configured' });
     return;
@@ -83,7 +94,7 @@ module.exports = async (req, res) => {
     if (!r.ok) {
       const detail = await r.text();
       console.error('LINE API error', r.status, detail);
-      res.status(502).json({ error: 'line api error', status: r.status });
+      res.status(502).json({ error: 'line api error', status: r.status, detail: String(detail).slice(0, 300) });
       return;
     }
     res.status(200).json({ ok: true });
