@@ -195,7 +195,7 @@ async function loadBookingsForDate(iso, strict){
     const docSnap=await withTimeout(db.collection(collectionName()).doc(iso).get());
     if(docSnap.exists){
       const data=docSnap.data();
-      activity().resources.forEach(r=>{ result[r.id]=data[r.id]||{}; });
+      Object.keys(data).forEach(k=>{ if(data[k] && typeof data[k]==='object') result[k]=data[k]; });
     }
     return result;
   }catch(e){
@@ -274,6 +274,7 @@ function renderCourts(){
           extra=` · ผู้ใหญ่ ${booking.adults||0} เด็ก ${booking.children||0}${booking.total?' · '+Number(booking.total).toLocaleString()+' บาท':''}`;
         }else{
           extra=booking.players?' · '+escapeHtml(booking.players)+' คน':'';
+          if(booking.machine){ extra+=' · เครื่องยิงลูก เครื่องที่ '+(parseInt(String(booking.machine).replace(/\D/g,''))||''); }
           if(booking.groupHours && booking.groupHours.length>1){
             extra+=` · จองรวม ${booking.groupHours.length} ชม.${booking.groupTotal?' ('+Number(booking.groupTotal).toLocaleString()+' บาท)':''}`;
           }
@@ -316,16 +317,20 @@ async function updateBooking(courtId, key, action){
   const target=fresh[courtId][key];
   if(!target) return;
   const gid=target.groupId;
-  Object.keys(fresh[courtId]).forEach(k=>{
-    const b=fresh[courtId][k];
-    if(k===key || (gid && b.groupId===gid)){
-      if(action==='confirm'){
-        b.status='confirmed';
-        b.confirmedAt=new Date().toISOString();
-      }else{
-        delete fresh[courtId][k];
+  // ยืนยัน/ปฏิเสธทั้งกลุ่ม (รวมเครื่องยิงลูกที่จองมาด้วยกัน) ทุกรายการที่ groupId เดียวกัน
+  Object.keys(fresh).forEach(rk=>{
+    Object.keys(fresh[rk]||{}).forEach(k=>{
+      const b=fresh[rk][k];
+      if(!b) return;
+      if((rk===courtId && k===key) || (gid && b.groupId===gid)){
+        if(action==='confirm'){
+          b.status='confirmed';
+          b.confirmedAt=new Date().toISOString();
+        }else{
+          delete fresh[rk][k];
+        }
       }
-    }
+    });
   });
   const ok=await saveBookingsForDate(selectedISO, fresh);
   if(ok){
