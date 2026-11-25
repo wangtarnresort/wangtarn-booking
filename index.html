@@ -177,6 +177,12 @@
   .picker-btn.active{background:var(--court-deep);border-color:var(--court-deep);color:var(--ball);}
   .picker-btn.active small{color:#B9CEC6;}
   .slot.dim{opacity:0.45;}
+  .machine-box{margin-top:14px;border:1.5px solid #E4E0D2;border-radius:12px;padding:10px 12px;}
+  .machine-title{font-family:'Kanit',sans-serif;font-weight:600;font-size:14px;}
+  .machine-note{font-size:12px;color:var(--ink-soft);margin:2px 0 6px;line-height:1.5;}
+  .modal .machine-opt{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:14px;margin:0;color:var(--ink);cursor:pointer;}
+  .modal .machine-opt input{width:auto;margin:0;padding:0;}
+  .machine-opt.busy{opacity:0.5;cursor:not-allowed;}
   .slot.past{opacity:0.4;cursor:not-allowed;background:#E9E6DA;}
   .slot.past:hover{transform:none;border-color:#E4E0D2;}
   .pkg-list{flex-basis:100%;display:flex;flex-wrap:wrap;gap:4px 18px;font-size:12.5px;color:var(--ink-soft);margin-top:6px;}
@@ -304,7 +310,8 @@ const I18N={
   lbl_phone_s:'เบอร์โทร', lbl_players_s:'จำนวนผู้ร่วม', lbl_group:'จองรวม', status_word:'สถานะ', btn_close:'ปิด', btn_cancel_booking:'ยกเลิกการจอง',
   dp_title:'จองเข้าใช้ {act}', lbl_adult:'ผู้ใหญ่', lbl_child:'เด็ก', per_person:'{p} บาท/คน',
   dp_err:'กรุณากรอกชื่อ เบอร์โทร และจำนวนคนอย่างน้อย 1 คน', dp_people_line:'ผู้ใหญ่ {a} คน · เด็ก {c} คน',
-  dp_count:'จำนวน', lbl_total:'ยอดรวม', loading:'กำลังโหลดตารางจอง...'
+  dp_count:'จำนวน', lbl_total:'ยอดรวม', loading:'กำลังโหลดตารางจอง...',
+  machine_title:'เช่าเครื่องยิงลูก (ไม่บังคับ)', machine_note:'{p} บาท/ชั่วโมง รวมค่าสนามแล้ว (ราคาเดียว) · เช่าได้ครั้งละ 1 เครื่องต่อการจอง', machine_none:'ไม่เช่า', machine_unit:'เครื่องยิงลูก เครื่องที่ {n}', machine_busy:'ไม่ว่างในเวลาที่เลือก', machine_info:'เช่าเครื่องยิงลูกได้ตอนจอง {p} บาท/ชั่วโมง รวมค่าสนามแล้ว (มี 2 เครื่อง เช่าได้ครั้งละ 1 เครื่อง)', fee_court:'ค่าสนาม', fee_machine:'ค่าเครื่องยิงลูก', lbl_machine:'เครื่องยิงลูก', alert_machine_taken:'เครื่องยิงลูกที่เลือกเพิ่งถูกจองไปแล้วในบางช่วงเวลา กรุณาเลือกใหม่'
  },
  en:{
   title:'Book Activities | WangTarn Resort', hero1:'Book an activity', hero2:'in the heart of nature at',
@@ -340,7 +347,8 @@ const I18N={
   lbl_phone_s:'Phone', lbl_players_s:'People', lbl_group:'Booked together', status_word:'Status', btn_close:'Close', btn_cancel_booking:'Cancel booking',
   dp_title:'Book entry to {act}', lbl_adult:'Adult', lbl_child:'Child', per_person:'{p} THB / person',
   dp_err:'Please enter your name, phone number and at least 1 person', dp_people_line:'{a} adult(s) · {c} child(ren)',
-  dp_count:'People', lbl_total:'Total amount', loading:'Loading schedule...'
+  dp_count:'People', lbl_total:'Total amount', loading:'Loading schedule...',
+  machine_title:'Ball machine rental (optional)', machine_note:'{p} THB / hour, court fee included (one flat price) · one machine per booking', machine_none:'No machine', machine_unit:'Ball machine #{n}', machine_busy:'Not available at your time', machine_info:'Ball machine rental available when booking: {p} THB / hour including the court (2 machines, one per booking)', fee_court:'Court', fee_machine:'Ball machine', lbl_machine:'Ball machine', alert_machine_taken:'The ball machine you chose was just booked for some of these hours. Please choose again.'
  },
  zh:{
   title:'活动预订 | WangTarn Resort', hero1:'预订活动', hero2:'尽享自然，就在',
@@ -376,7 +384,8 @@ const I18N={
   lbl_phone_s:'电话', lbl_players_s:'人数', lbl_group:'合并预订', status_word:'状态', btn_close:'关闭', btn_cancel_booking:'取消预订',
   dp_title:'预订 {act} 入场', lbl_adult:'成人', lbl_child:'儿童', per_person:'{p} 泰铢/人',
   dp_err:'请填写姓名、电话，并至少选择 1 人', dp_people_line:'成人 {a} 人 · 儿童 {c} 人',
-  dp_count:'人数', lbl_total:'总金额', loading:'正在加载预订表…'
+  dp_count:'人数', lbl_total:'总金额', loading:'正在加载预订表…',
+  machine_title:'租用发球机（选填）', machine_note:'{p} 泰铢/小时，已含场地费（统一价格）· 每次预订限租 1 台', machine_none:'不租用', machine_unit:'发球机 {n} 号', machine_busy:'所选时间已被占用', machine_info:'预订时可租用发球机：{p} 泰铢/小时，含场地费（共 2 台，每次预订限租 1 台）', fee_court:'场地费', fee_machine:'发球机费', lbl_machine:'发球机', alert_machine_taken:'所选发球机在部分时段刚被预订，请重新选择'
  },
  ja:{
   title:'アクティビティ予約 | WangTarn Resort', hero1:'アクティビティを予約', hero2:'自然に囲まれた',
@@ -412,7 +421,8 @@ const I18N={
   lbl_phone_s:'電話', lbl_players_s:'人数', lbl_group:'まとめて予約', status_word:'状態', btn_close:'閉じる', btn_cancel_booking:'予約をキャンセル',
   dp_title:'{act}の入場を予約', lbl_adult:'大人', lbl_child:'子ども', per_person:'1人 {p} バーツ',
   dp_err:'お名前・電話番号・1名以上の人数を入力してください', dp_people_line:'大人 {a} 名 · 子ども {c} 名',
-  dp_count:'人数', lbl_total:'合計金額', loading:'予約表を読み込み中…'
+  dp_count:'人数', lbl_total:'合計金額', loading:'予約表を読み込み中…',
+  machine_title:'ボールマシンのレンタル（任意）', machine_note:'1時間 {p} バーツ、コート料金込み（均一料金）· 1回の予約につき1台まで', machine_none:'借りない', machine_unit:'ボールマシン {n}号機', machine_busy:'選択した時間は利用不可', machine_info:'予約時にボールマシンをレンタルできます：1時間 {p} バーツ（コート料金込み、2台、1回の予約につき1台まで）', fee_court:'コート料金', fee_machine:'マシン料金', lbl_machine:'ボールマシン', alert_machine_taken:'選択したボールマシンは一部の時間帯で直前に予約されました。選び直してください'
  },
  ko:{
   title:'액티비티 예약 | WangTarn Resort', hero1:'액티비티 예약', hero2:'자연 속에서 즐기는',
@@ -448,7 +458,8 @@ const I18N={
   lbl_phone_s:'연락처', lbl_players_s:'인원', lbl_group:'함께 예약', status_word:'상태', btn_close:'닫기', btn_cancel_booking:'예약 취소',
   dp_title:'{act} 입장 예약', lbl_adult:'성인', lbl_child:'어린이', per_person:'1인 {p} 바트',
   dp_err:'이름, 연락처, 1명 이상의 인원을 입력해 주세요', dp_people_line:'성인 {a}명 · 어린이 {c}명',
-  dp_count:'인원', lbl_total:'총 금액', loading:'예약표를 불러오는 중…'
+  dp_count:'인원', lbl_total:'총 금액', loading:'예약표를 불러오는 중…',
+  machine_title:'볼 머신 대여 (선택)', machine_note:'시간당 {p} 바트, 코트 요금 포함(단일 요금) · 예약 1건당 1대까지', machine_none:'대여 안 함', machine_unit:'볼 머신 {n}번', machine_busy:'선택한 시간에 이용 불가', machine_info:'예약 시 볼 머신을 대여할 수 있습니다: 시간당 {p} 바트, 코트 요금 포함 (2대, 예약 1건당 1대까지)', fee_court:'코트 요금', fee_machine:'머신 요금', lbl_machine:'볼 머신', alert_machine_taken:'선택한 볼 머신이 일부 시간대에 방금 예약되었습니다. 다시 선택해 주세요'
  }
 };
 
@@ -487,6 +498,7 @@ const ACTIVITIES=[
     get label(){ return t('act_pickleball'); },
     slotHours:[7,8,9,10,11,12,13,14,15,16,17,18,19,20,21],
     price:250,
+    machines:{ids:['M1','M2'],price:500}, // 500 บาท/ชม. = ราคาเดียว รวมค่าสนามแล้ว (ไม่บวกเพิ่มจากค่าสนาม)
     get priceLabel(){ return t('per_hour',{p:250}); },
     resources:[R('A','court_x',{n:'A'}),R('B','court_x',{n:'B'})]
   },
@@ -642,11 +654,12 @@ function showModalError(id,msg){
 async function loadBookingsForDate(iso, strict){
   const result={};
   activity().resources.forEach(r=>{ result[r.id]={}; });
+  if(activity().machines) activity().machines.ids.forEach(id=>{ result[id]={}; });
   try{
     const docSnap=await withTimeout(db.collection(collectionName()).doc(iso).get());
     if(docSnap.exists){
       const data=docSnap.data();
-      activity().resources.forEach(r=>{ result[r.id]=data[r.id]||{}; });
+      Object.keys(data).forEach(k=>{ if(data[k] && typeof data[k]==='object') result[k]=data[k]; });
     }
     return result;
   }catch(e){
@@ -854,6 +867,7 @@ function renderResources(){
       ? t('hint_atv',{n:currentPkg().hours,btn:t('btn_go')})
       : t('hint_multi',{btn:t('btn_go')});
     panel.appendChild(hint);
+    if(activity().machines){ const mi=document.createElement('div'); mi.className='multi-hint'; mi.textContent=t('machine_info',{p:activity().machines.price}); panel.appendChild(mi); }
 
     const slotsWrap=document.createElement('div');
     slotsWrap.className='slots';
@@ -980,19 +994,35 @@ async function startBookingFlow(){
   openNameForm();
 }
 
+function machineIndex(id){ return parseInt(String(id).replace(/\D/g,''))||0; }
+function machineBusy(id,hours){
+  const m=currentBookings[id]||{};
+  return hours.some(h=>m[String(h)]);
+}
+
 function openNameForm(){
   const res=selectedResource();
   const total=calcTotal(selection.hours.length);
+  const mc=activity().machines;
+  let machineSection='';
+  if(mc){
+    const opts=mc.ids.map(id=>{
+      const busy=machineBusy(id,selection.hours);
+      return `<label class="machine-opt${busy?' busy':''}"><input type="radio" name="fMachine" value="${id}"${busy?' disabled':''}><span>${t('machine_unit',{n:machineIndex(id)})}${busy?' ('+t('machine_busy')+')':''}</span></label>`;
+    }).join('');
+    machineSection=`<div class="machine-box"><div class="machine-title">${t('machine_title')}</div><div class="machine-note">${t('machine_note',{p:mc.price})}</div><label class="machine-opt"><input type="radio" name="fMachine" value="" checked><span>${t('machine_none')}</span></label>${opts}</div>`;
+  }
   const box=document.getElementById('modalBox');
   box.innerHTML=`
     <h3>${t('book_title',{act:activity().label,res:res.name})}</h3>
-    <p class="modal-sub">${formatDate(selectedISO)}<br>${t('hours_line',{n:selection.hours.length,hours:hoursText(selection.hours)})}${pkgText(selection.hours.length)?' ('+pkgText(selection.hours.length)+')':''}<br><b>${t('total')} ${total.toLocaleString()} ${t('baht')}</b></p>
+    <p class="modal-sub">${formatDate(selectedISO)}<br>${t('hours_line',{n:selection.hours.length,hours:hoursText(selection.hours)})}${pkgText(selection.hours.length)?' ('+pkgText(selection.hours.length)+')':''}<br><b id="nfTotal">${t('total')} ${total.toLocaleString()} ${t('baht')}</b></p>
     <label>${t('lbl_name')}</label>
     <input type="text" id="fName" value="${escapeHtml(lineUser.name)}">
     <label>${t('lbl_phone')}</label>
     <input type="text" id="fPhone" placeholder="0812345678">
     <label>${t('lbl_players')}</label>
     <input type="text" id="fPlayers" placeholder="${t('ph_players')}">
+    ${machineSection}
     <div class="form-err" id="fErr">${t('err_form')}</div>
     <div class="modal-actions">
       <button class="btn ghost" id="btnCancel">${t('btn_cancel')}</button>
@@ -1001,6 +1031,13 @@ function openNameForm(){
   `;
   document.getElementById('overlay').classList.add('show');
   document.getElementById('btnCancel').onclick=closeModal;
+  const pickedMachine=()=>{ const r=document.querySelector('input[name="fMachine"]:checked'); return r?r.value:''; };
+  const refreshTotal=()=>{
+    const m=pickedMachine();
+    const total2=m ? mc.price*selection.hours.length : calcTotal(selection.hours.length);
+    document.getElementById('nfTotal').textContent=t('total')+' '+total2.toLocaleString()+' '+t('baht');
+  };
+  document.querySelectorAll('input[name="fMachine"]').forEach(r=>{ r.onchange=refreshTotal; });
   document.getElementById('btnNext').onclick=()=>{
     const name=document.getElementById('fName').value.trim();
     const phone=document.getElementById('fPhone').value.trim();
@@ -1009,7 +1046,7 @@ function openNameForm(){
       document.getElementById('fErr').style.display='block';
       return;
     }
-    openPaymentStep({name, phone, players});
+    openPaymentStep({name, phone, players, machine:pickedMachine()});
   };
 }
 
@@ -1045,11 +1082,17 @@ function copyAccount(btn){
 function openPaymentStep(formData){
   const res=selectedResource();
   const hours=selection.hours.slice();
-  const total=calcTotal(hours.length);
+  const courtTotal=calcTotal(hours.length);
+  // ราคาแพ็กเกจสนาม+เครื่องยิงลูก ราคาเดียวต่อชั่วโมง (รวมค่าสนามแล้ว)
+  const total=formData.machine ? activity().machines.price*hours.length : courtTotal;
+  const machineTotal=total-courtTotal;
+  const machineLine=formData.machine
+    ? `<br>${t('lbl_machine')}: ${t('machine_unit',{n:machineIndex(formData.machine)})}`
+    : '';
   const box=document.getElementById('modalBox');
   box.innerHTML=`
     <h3>${t('pay_title')}</h3>
-    <p class="modal-sub">${activity().label} · ${res.name} · ${formatDate(selectedISO)}<br>${t('hours_line',{n:hours.length,hours:hoursText(hours)})}</p>
+    <p class="modal-sub">${activity().label} · ${res.name} · ${formatDate(selectedISO)}<br>${t('hours_line',{n:hours.length,hours:hoursText(hours)})}${machineLine}</p>
     ${payBox(total.toLocaleString()+' '+t('baht'))}
     <div class="form-err" id="payErr"></div>
     <div class="modal-actions">
@@ -1087,16 +1130,36 @@ function openPaymentStep(formData){
       renderResources();
       return;
     }
-    const groupId='g'+Date.now();
+    if(formData.machine){
+      const mTaken=hours.filter(h=>fresh[formData.machine] && fresh[formData.machine][String(h)]);
+      if(mTaken.length>0){
+        alert(t('alert_machine_taken'));
+        closeModal();
+        currentBookings=fresh;
+        resetSelection();
+        renderResources();
+        return;
+      }
+    }
+    const groupId='g'+Date.now()+Math.random().toString(36).slice(2,7);
     const nowIso=new Date().toISOString();
     hours.forEach(h=>{
       fresh[res.id][String(h)]={
         name:formData.name, phone:formData.phone, players:formData.players,
         lineUserId:lineUser.uid, lineName:lineUser.name,
-        groupId, groupHours:hours, groupTotal:total,
+        groupId, groupHours:hours, groupTotal:total, machine:formData.machine||'', machineTotal,
         status:'pending_payment', bookedAt:nowIso
       };
     });
+    if(formData.machine){
+      fresh[formData.machine]=fresh[formData.machine]||{};
+      hours.forEach(h=>{
+        fresh[formData.machine][String(h)]={
+          name:formData.name, phone:formData.phone, lineUserId:lineUser.uid, lineName:lineUser.name,
+          groupId, courtId:res.id, status:'pending_payment', bookedAt:nowIso
+        };
+      });
+    }
     const ok=await saveBookingsForDate(selectedISO, fresh);
     if(ok){
       currentBookings=fresh;
@@ -1107,7 +1170,7 @@ function openPaymentStep(formData){
         activity:t('act_'+activity().id,{},'th'), resource:t(res.nameKey,res.nameVars,'th'), dateText:formatDateThai(selectedISO),
         timeText:hoursText(hours)+(pkgText(hours.length,'th')?' ('+pkgText(hours.length,'th')+')':''),
         name:formData.name, phone:formData.phone, total,
-        extra:formData.players?'ผู้ร่วม '+formData.players:''
+        extra:[formData.players?'ผู้ร่วม '+formData.players:'', formData.machine?'เช่าเครื่องยิงลูก เครื่องที่ '+machineIndex(formData.machine):''].filter(Boolean).join(' · ')
       });
     }else{
       showModalError('payErr',netErrText(t('alert_save_fail')));
@@ -1130,6 +1193,7 @@ function openBookedModal(res, hour, label, booking){
       <div><b>${t('lbl_phone_s')}:</b> ${escapeHtml(booking.phone)}</div>
       ${booking.players?`<div><b>${t('lbl_players_s')}:</b> ${escapeHtml(booking.players)}</div>`:''}
       ${groupLine}
+      ${booking.machine?`<div><b>${t('lbl_machine')}:</b> ${t('machine_unit',{n:machineIndex(booking.machine)})}</div>`:''}
     </div>
     <div class="modal-actions">
       <button class="btn ghost" id="btnClose">${t('btn_close')}</button>
@@ -1150,9 +1214,11 @@ function openBookedModal(res, hour, label, booking){
         cancelBtn.disabled=false;
         return;
       }
-      Object.keys(fresh[res.id]).forEach(k=>{
-        const b=fresh[res.id][k];
-        if(k===String(hour) || (booking.groupId && b.groupId===booking.groupId)) delete fresh[res.id][k];
+      Object.keys(fresh).forEach(rk=>{
+        Object.keys(fresh[rk]||{}).forEach(k=>{
+          const b=fresh[rk][k];
+          if((rk===res.id && k===String(hour)) || (booking.groupId && b && b.groupId===booking.groupId)) delete fresh[rk][k];
+        });
       });
       const ok=await saveBookingsForDate(selectedISO, fresh);
       if(ok){
